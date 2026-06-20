@@ -1,16 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import { translate } from '@vitalets/google-translate-api';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 🎯 FIXED: Changed to allow all origins (*) by removing explicit restrictions
 app.use(cors());
-
 app.use(express.json());
 
-// Main translation API route
+// Main translation API route using the official MyMemory API
 app.post('/api/translate', async (req, res) => {
     try {
         const { text, targetLanguage } = req.body;
@@ -18,26 +15,28 @@ app.post('/api/translate', async (req, res) => {
             return res.status(400).json({ error: "Missing required data fields." });
         }
 
-        // Complete dictionary mapping your frontend language array strings to ISO 639-1 language codes
+        // Map languages to standard pairs (Source Language is auto-detected)
         const langCodes = { 
-            'English': 'en', 
-            'Hindi': 'hi', 
-            'Spanish': 'es', 
-            'French': 'fr', 
-            'Telugu': 'te', 
-            'Tamil': 'ta', 
-            'German': 'de', 
-            'Arabic': 'ar', 
-            'Japanese': 'ja' 
+            'English': 'en', 'Hindi': 'hi', 'Spanish': 'es', 
+            'French': 'fr', 'Telugu': 'te', 'Tamil': 'ta', 
+            'German': 'de', 'Arabic': 'ar', 'Japanese': 'ja' 
         };
         
         const targetCode = langCodes[targetLanguage] || 'en';
 
-        // Execute the free translation lookup
-        const result = await translate(text, { to: targetCode });
+        // Fetching directly from MyMemory's free API endpoint
+        const response = await fetch(
+            `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetCode}`
+        );
         
-        // Return the final result format expected by your React Axios state update handler
-        res.json({ translation: result.text });
+        const data = await response.json();
+
+        if (data.responseData && data.responseData.translatedText) {
+            res.json({ translation: data.responseData.translatedText });
+        } else {
+            throw new Error("Invalid API response format");
+        }
+
     } catch (error) {
         console.error("Translation Error:", error);
         res.status(500).json({ error: "Translation endpoint failed internally." });
@@ -46,5 +45,5 @@ app.post('/api/translate', async (req, res) => {
 
 // Start the server
 app.listen(PORT, () => {
-    console.log(`🚀 Translation Server is running smoothly on http://localhost:${PORT}`);
+    console.log(`🚀 Stable Cloud Translation Server is running smoothly on port ${PORT}`);
 });
